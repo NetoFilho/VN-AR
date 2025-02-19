@@ -2,62 +2,24 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>AR – Clique para Posicionar Imagem</title>
-    <!-- A-Frame -->
+    <title>AR com AR.js e A-Frame</title>
+    <!-- Incluindo A-Frame -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <!-- AR.js para A-Frame -->
+    <!-- Incluindo AR.js para A-Frame -->
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
-      body { margin: 0; overflow: hidden; }
+      body, html { margin: 0; overflow: hidden; }
     </style>
   </head>
   <body>
-    <!-- Cena AR -->
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-      
-      <!-- Câmera com controles e cursor (para detectar cliques com raycaster) -->
-      <a-entity camera look-controls>
-        <a-entity 
-          cursor="rayOrigin: mouse" 
-          raycaster="objects: #ground">
-        </a-entity>
-      </a-entity>
-      
-      <!-- Plano invisível (chão) para capturar o clique -->
-      <a-entity id="ground" 
-                geometry="primitive: plane; width: 100; height: 100" 
-                material="opacity: 0; transparent: true" 
-                rotation="-90 0 0" 
-                position="0 0 0"
-                spawn-image-on-click>
-      </a-entity>
-      
-      <!-- Componente que cria a imagem na posição clicada -->
-      <script>
-        AFRAME.registerComponent('spawn-image-on-click', {
-          init: function () {
-            const sceneEl = this.el.sceneEl;
-            this.el.addEventListener('click', function (evt) {
-              // Ponto onde o usuário clicou (obtido via raycaster)
-              const point = evt.detail.intersection.point;
-              // Cria a entidade a-image
-              const imgEl = document.createElement('a-image');
-              imgEl.setAttribute('src', 'img1.png');
-              // Ajusta a posição – elevamos um pouco em y para que a imagem não fique "presa" ao chão
-              imgEl.setAttribute('position', `${point.x} ${point.y + 0.5} ${point.z}`);
-              // Ajusta a rotação se necessário (aqui, deixando a imagem “de pé”)
-              imgEl.setAttribute('rotation', '-90 0 0');
-              // Define dimensões (ajuste conforme necessário)
-              imgEl.setAttribute('width', '1');
-              imgEl.setAttribute('height', '1');
-              
-              // Adiciona a imagem à cena
-              sceneEl.appendChild(imgEl);
-            });
-          }
-        });
-      </script>
-      
+    <a-scene embedded arjs="trackingMethod: best;">
+      <!-- Marcador padrão (Hiro) -->
+      <a-marker preset="hiro">
+        <!-- A imagem que queremos fixar -->
+        <a-image src="img1.png" position="0 0 0" rotation="-90 0 0" width="1" height="1"></a-image>
+      </a-marker>
+      <!-- A câmera -->
+      <a-entity camera></a-entity>
     </a-scene>
   </body>
 </html>
