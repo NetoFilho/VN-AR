@@ -1,46 +1,166 @@
 <!DOCTYPE html>
-<html>
-  <head>
+<html lang="pt-BR">
+<head>
     <meta charset="utf-8">
-    <title>AR com GPS e Clique</title>
-    <!-- A-Frame -->
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <!-- Componentes para AR baseado em GPS -->
-    <script src="https://unpkg.com/aframe-gps-camera-component/dist/aframe-gps-camera-component.min.js"></script>
-    <script src="https://unpkg.com/aframe-gps-entity-place/dist/aframe-gps-entity-place.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR com GPS e Interação</title>
+    <!-- Updated A-Frame version -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <!-- Updated GPS components -->
+    <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
     <style>
-      body, html { margin: 0; overflow: hidden; }
+        body, html {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #ui-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        #error-message {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: none;
+        }
     </style>
-  </head>
-  <body>
-    <a-scene>
-      <!-- A câmera usa o componente gps-camera para atualizar a posição conforme sua localização real -->
-      <a-camera gps-camera rotation-reader></a-camera>
-      
-      <!-- Entidade posicionada via GPS.
-           Substitua as coordenadas abaixo pelas desejadas.
-           No exemplo, usamos coordenadas de São Paulo (apenas ilustrativo) -->
-      <a-entity id="clickable"
-         gps-entity-place="latitude: -13.622354; longitude: -39.312936"
-         geometry="primitive: plane; width: 1; height: 1"
-         material="color: green">
-      </a-entity>
-      
-      <!-- Componente para ouvir o clique e alterar a cor do objeto -->
-      <script>
-        AFRAME.registerComponent('click-listener', {
-          init: function () {
-            this.el.addEventListener('click', function () {
-              console.log('Elemento clicado!');
-              const currentColor = this.getAttribute('material').color;
-              const newColor = currentColor === 'green' ? 'red' : 'green';
-              this.setAttribute('material', 'color', newColor);
-            });
-          }
-        });
-        // Adiciona o componente 'click-listener' à entidade clicável
-        document.querySelector('#clickable').setAttribute('click-listener', '');
-      </script>
+</head>
+<body>
+    <div id="ui-container">
+        <p>Distância até o objeto: <span id="distance">Calculando...</span></p>
+    </div>
+    <div id="error-message"></div>
+
+    <a-scene 
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs="sourceType: webcam; debugUIEnabled: false;"
+    >
+        <a-camera gps-camera rotation-reader></a-camera>
+        
+        <a-entity
+            id="clickable"
+            gps-entity-place="latitude: -13.622354; longitude: -39.312936"
+            geometry="primitive: box; width: 1; height: 1; depth: 1"
+            material="color: #00ff00; opacity: 0.8"
+            animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear"
+            class="clickable"
+        ></a-entity>
     </a-scene>
-  </body>
+
+    <script>
+        // Utility functions
+        const showError = (message) => {
+            const errorElement = document.getElementById('error-message');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        };
+
+        const calculateDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return (R * c).toFixed(2);
+        };
+
+        // Component registration
+        AFRAME.registerComponent('click-listener', {
+            init: function () {
+                this.el.addEventListener('click', (e) => {
+                    console.log('Elemento clicado!');
+                    const currentColor = this.el.getAttribute('material').color;
+                    const newColor = currentColor === '#00ff00' ? '#ff0000' : '#00ff00';
+                    this.el.setAttribute('material', 'color', newColor);
+                    
+                    // Add particle effect on click
+                    const position = e.detail.intersection.point;
+                    this.createParticleEffect(position);
+                });
+            },
+            
+            createParticleEffect: function(position) {
+                const particleEntity = document.createElement('a-entity');
+                particleEntity.setAttribute('position', position);
+                particleEntity.setAttribute('particle-system', {
+                    preset: 'dust',
+                    particleCount: 100,
+                    size: 0.2,
+                    color: '#FFF',
+                    duration: 1
+                });
+                this.el.sceneEl.appendChild(particleEntity);
+                
+                // Remove particle effect after animation
+                setTimeout(() => {
+                    particleEntity.parentNode.removeChild(particleEntity);
+                }, 1000);
+            }
+        });
+
+        // Main initialization
+        window.onload = () => {
+            // Check for geolocation support
+            if (!navigator.geolocation) {
+                showError('Geolocalização não é suportada pelo seu navegador');
+                return;
+            }
+
+            const clickableElement = document.querySelector('#clickable');
+            const uiContainer = document.getElementById('ui-container');
+            const distanceDisplay = document.getElementById('distance');
+            
+            // Add click listener
+            clickableElement.setAttribute('click-listener', '');
+
+            // Watch user's position
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const targetLat = -13.622354;
+                    const targetLon = -39.312936;
+                    const distance = calculateDistance(
+                        position.coords.latitude,
+                        position.coords.longitude,
+                        targetLat,
+                        targetLon
+                    );
+                    
+                    distanceDisplay.textContent = `${distance} km`;
+                    uiContainer.style.display = 'block';
+                },
+                (err) => {
+                    showError(`Erro ao obter localização: ${err.message}`);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 27000
+                }
+            );
+        };
+    </script>
+</body>
 </html>
