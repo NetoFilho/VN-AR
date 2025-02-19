@@ -1,29 +1,73 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="utf-8">
     <title>Exemplo AR com Imagem</title>
-    <!-- Incluindo A-Frame -->
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <!-- Incluindo AR.js para A-Frame -->
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/aframe/build/aframe-ar.js"></script>
-  </head>
-  <body style="margin: 0; overflow: hidden;">
-    <!-- Cena AR -->
-    <a-scene embedded arjs>
-      <!-- Assets para carregar a imagem -->
-      <a-assets>
-        <img id="minhaImagem" src="sua_imagem_aqui.jpg" alt="Imagem AR">
-      </a-assets>
+    
+    <script>
+        AFRAME.registerComponent('clickable', {
+            init: function() {
+                this.el.addEventListener('click', function() {
+                    // Efeito de escala ao clicar
+                    const scale = this.getAttribute('scale');
+                    this.setAttribute('animation', {
+                        property: 'scale',
+                        to: `${scale.x * 1.2} ${scale.y * 1.2} ${scale.z * 1.2}`,
+                        dur: 100,
+                        dir: 'alternate',
+                        loop: 1
+                    });
+                });
+            }
+        });
 
-      <!-- Marcador AR (preset "hiro") -->
-      <a-marker preset="hiro">
-        <!-- Exibindo a imagem em um plano -->
-        <a-plane src="#minhaImagem" rotation="-90 0 0" width="1" height="1"></a-plane>
-      </a-marker>
+        AFRAME.registerComponent('place-on-click', {
+            init: function() {
+                this.el.addEventListener('click', (event) => {
+                    // Obtém a posição do clique
+                    const position = event.detail.intersection.point;
+                    
+                    // Cria um novo plano com a imagem na posição clicada
+                    const newImage = document.createElement('a-plane');
+                    newImage.setAttribute('src', '#minhaImagem');
+                    newImage.setAttribute('position', position);
+                    newImage.setAttribute('rotation', '-90 0 0');
+                    newImage.setAttribute('width', '1');
+                    newImage.setAttribute('height', '1');
+                    newImage.setAttribute('clickable', '');
+                    
+                    // Adiciona o novo plano à cena
+                    document.querySelector('a-scene').appendChild(newImage);
+                });
+            }
+        });
+    </script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+        <a-assets>
+            <img id="minhaImagem" src="img1.png" alt="Imagem AR">
+        </a-assets>
 
-      <!-- Câmera -->
-      <a-entity camera></a-entity>
+        <!-- Plano invisível para detectar cliques -->
+        <a-plane position="0 0 0" 
+                 rotation="-90 0 0" 
+                 width="100" 
+                 height="100" 
+                 color="transparent" 
+                 place-on-click 
+                 material="opacity: 0.0">
+        </a-plane>
+
+        <a-camera position="0 0 0" look-controls-enabled="false"></a-camera>
     </a-scene>
-  </body>
+
+    <!-- Instruções para o usuário -->
+    <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
+                background: white; padding: 10px; border-radius: 5px;">
+        Clique em qualquer lugar para colocar a imagem
+    </div>
+</body>
 </html>
