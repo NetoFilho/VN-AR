@@ -2,10 +2,10 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>AR com AR.js e A-Frame - Quadrado Verde</title>
-    <!-- Incluindo A-Frame -->
+    <title>AR com AR.js e A-Frame - Clique Interativo</title>
+    <!-- A-Frame -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <!-- Incluindo AR.js para A-Frame -->
+    <!-- AR.js -->
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
       body, html { margin: 0; overflow: hidden; }
@@ -15,16 +15,37 @@
     <a-scene embedded arjs="trackingMethod: best;">
       <!-- Marcador padrão (Hiro) -->
       <a-marker preset="hiro">
-        <!-- Em vez de uma imagem, um plano verde -->
-        <a-entity 
+        <!-- Nosso plano verde com interação de clique -->
+        <a-entity id="clickable" 
           geometry="primitive: plane; width: 0.5; height: 0.5" 
           material="color: green"
           position="0 0 0"
-          rotation="-90 0 0">
+          rotation="-90 0 0"
+          click-listener>
         </a-entity>
       </a-marker>
-      <!-- Câmera -->
-      <a-entity camera></a-entity>
+      <!-- Câmera com cursor para detectar cliques (para desktop use rayOrigin: mouse) -->
+      <a-entity camera>
+        <a-cursor rayOrigin="mouse" 
+                  fuse="false"
+                  position="0 0 -1">
+        </a-cursor>
+      </a-entity>
+      
+      <!-- Componente para ouvir o clique e mudar a cor -->
+      <script>
+        AFRAME.registerComponent('click-listener', {
+          init: function () {
+            this.el.addEventListener('click', function () {
+              console.log('Elemento clicado!');
+              // Alterna entre verde e vermelho
+              const currentColor = this.getAttribute('material').color;
+              const newColor = currentColor === 'green' ? 'red' : 'green';
+              this.setAttribute('material', 'color', newColor);
+            });
+          }
+        });
+      </script>
     </a-scene>
   </body>
 </html>
