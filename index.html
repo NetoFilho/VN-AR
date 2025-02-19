@@ -2,49 +2,44 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>AR com AR.js e A-Frame - Clique Interativo</title>
+    <title>AR com GPS e Clique</title>
     <!-- A-Frame -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <!-- AR.js -->
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <!-- Componentes para AR baseado em GPS -->
+    <script src="https://unpkg.com/aframe-gps-camera-component/dist/aframe-gps-camera-component.min.js"></script>
+    <script src="https://unpkg.com/aframe-gps-entity-place/dist/aframe-gps-entity-place.min.js"></script>
     <style>
       body, html { margin: 0; overflow: hidden; }
     </style>
   </head>
   <body>
-    <a-scene embedded arjs="trackingMethod: best;">
-      <!-- Marcador padrão (Hiro) -->
-      <a-marker preset="hiro">
-        <!-- Nosso plano verde com interação de clique -->
-        <a-entity id="clickable" 
-          geometry="primitive: plane; width: 0.5; height: 0.5" 
-          material="color: green"
-          position="0 0 0"
-          rotation="-90 0 0"
-          click-listener>
-        </a-entity>
-      </a-marker>
-      <!-- Câmera com cursor para detectar cliques (para desktop use rayOrigin: mouse) -->
-      <a-entity camera>
-        <a-cursor rayOrigin="mouse" 
-                  fuse="false"
-                  position="0 0 -1">
-        </a-cursor>
+    <a-scene>
+      <!-- A câmera usa o componente gps-camera para atualizar a posição conforme sua localização real -->
+      <a-camera gps-camera rotation-reader></a-camera>
+      
+      <!-- Entidade posicionada via GPS.
+           Substitua as coordenadas abaixo pelas desejadas.
+           No exemplo, usamos coordenadas de São Paulo (apenas ilustrativo) -->
+      <a-entity id="clickable"
+         gps-entity-place="latitude: -13.622354; longitude: -39.312936"
+         geometry="primitive: plane; width: 1; height: 1"
+         material="color: green">
       </a-entity>
       
-      <!-- Componente para ouvir o clique e mudar a cor -->
+      <!-- Componente para ouvir o clique e alterar a cor do objeto -->
       <script>
         AFRAME.registerComponent('click-listener', {
           init: function () {
             this.el.addEventListener('click', function () {
               console.log('Elemento clicado!');
-              // Alterna entre verde e vermelho
               const currentColor = this.getAttribute('material').color;
               const newColor = currentColor === 'green' ? 'red' : 'green';
               this.setAttribute('material', 'color', newColor);
             });
           }
         });
+        // Adiciona o componente 'click-listener' à entidade clicável
+        document.querySelector('#clickable').setAttribute('click-listener', '');
       </script>
     </a-scene>
   </body>
