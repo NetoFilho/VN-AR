@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>AR com AR.js e A-Frame</title>
+    <title>AR com AR.js e A-Frame - Quadrado Verde</title>
     <!-- Incluindo A-Frame -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <!-- Incluindo AR.js para A-Frame -->
@@ -15,10 +15,15 @@
     <a-scene embedded arjs="trackingMethod: best;">
       <!-- Marcador padrão (Hiro) -->
       <a-marker preset="hiro">
-        <!-- A imagem que queremos fixar -->
-        <a-image src="img1.png" position="0 0 0" rotation="-90 0 0" width="1" height="1"></a-image>
+        <!-- Em vez de uma imagem, um plano verde -->
+        <a-entity 
+          geometry="primitive: plane; width: 0.5; height: 0.5" 
+          material="color: green"
+          position="0 0 0"
+          rotation="-90 0 0">
+        </a-entity>
       </a-marker>
-      <!-- A câmera -->
+      <!-- Câmera -->
       <a-entity camera></a-entity>
     </a-scene>
   </body>
