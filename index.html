@@ -1,106 +1,32 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <meta charset="utf-8">
-    <title>Exemplo AR com Imagem</title>
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/aframe/build/aframe-ar.js"></script>
-    
-    <script>
-        AFRAME.registerComponent('ar-interface', {
-            init: function() {
-                this.placementMode = true;
-                this.feedback = document.createElement('a-entity');
-                this.feedback.setAttribute('geometry', {
-                    primitive: 'ring',
-                    radiusInner: 0.03,
-                    radiusOuter: 0.04
-                });
-                this.feedback.setAttribute('material', {
-                    color: '#ffffff',
-                    shader: 'flat',
-                    opacity: 0.8
-                });
-                this.feedback.setAttribute('position', '0 0 -1');
-                this.feedback.setAttribute('visible', true);
-                
-                this.notification = document.createElement('a-entity');
-                this.notification.setAttribute('text', {
-                    value: 'Toque para posicionar a imagem',
-                    align: 'center',
-                    width: 1,
-                    color: '#ffffff'
-                });
-                this.notification.setAttribute('position', '0 0.2 -1');
-                this.notification.setAttribute('visible', true);
-
-                // Adiciona os elementos à câmera
-                const camera = document.querySelector('a-camera');
-                camera.appendChild(this.feedback);
-                camera.appendChild(this.notification);
-
-                // Configurar evento de toque
-                this.el.sceneEl.addEventListener('touchstart', (evt) => {
-                    evt.preventDefault();
-                    if (this.placementMode) {
-                        this.placeImage();
-                        this.feedback.setAttribute('visible', false);
-                        this.notification.setAttribute('visible', false);
-                        this.placementMode = false;
-                    }
-                });
-            },
-
-            placeImage: function() {
-                const camera = document.querySelector('a-camera');
-                const position = camera.getAttribute('position');
-                const rotation = camera.getAttribute('rotation');
-                
-                // Calcula a posição à frente da câmera
-                const distance = 2; // 2 metros à frente
-                const radians = THREE.Math.degToRad(rotation.y);
-                
-                const x = position.x - Math.sin(radians) * distance;
-                const z = position.z - Math.cos(radians) * distance;
-                
-                // Cria a imagem
-                const image = document.createElement('a-image');
-                image.setAttribute('src', '#minhaImagem');
-                image.setAttribute('position', `${x} ${position.y} ${z}`);
-                image.setAttribute('rotation', `0 ${rotation.y} 0`);
-                image.setAttribute('width', '1');
-                image.setAttribute('height', '1');
-                
-                // Adiciona a imagem à cena
-                this.el.sceneEl.appendChild(image);
-
-                // Mostra feedback temporário
-                const feedback = document.createElement('a-entity');
-                feedback.setAttribute('text', {
-                    value: 'Imagem posicionada!',
-                    align: 'center',
-                    width: 1,
-                    color: '#ffffff'
-                });
-                feedback.setAttribute('position', '0 0.2 -1');
-                camera.appendChild(feedback);
-
-                // Remove o feedback após 2 segundos
-                setTimeout(() => {
-                    feedback.parentNode.removeChild(feedback);
-                }, 2000);
-            }
-        });
-    </script>
-</head>
-<body style="margin: 0; overflow: hidden;">
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" ar-interface>
-        <a-assets>
-            <img id="minhaImagem" src="img1.png" alt="Imagem AR">
-        </a-assets>
-
-        <a-camera position="0 0 0" look-controls-enabled="true">
-        </a-camera>
+    <title>AR com Imagem Fixa</title>
+    <!-- Incluindo A-Frame -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <!-- Incluindo AR.js para A-Frame -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <!-- Cena AR -->
+    <a-scene embedded arjs>
+      <!-- Marcador AR (preset "hiro") -->
+      <a-marker preset="hiro">
+        <!-- Imagem fixa em relação ao marcador -->
+        <a-image src="img1.png" 
+                 position="0 0 0" 
+                 rotation="-90 0 0" 
+                 width="1" 
+                 height="1">
+        </a-image>
+      </a-marker>
+      
+      <!-- Câmera AR -->
+      <a-entity camera></a-entity>
     </a-scene>
-</body>
+  </body>
 </html>
