@@ -1,81 +1,67 @@
 <!DOCTYPE html>
-<html lang="pt-br">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Experiência AR com Three.js (ES Modules)</title>
-    <style>
-      body { margin: 0; overflow: hidden; }
-    </style>
-    <!-- Import Map para mapear "three" -->
-    <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.152.0/build/three.module.js"
-      }
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japanese Restaurant AR Experience</title>
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Loader para arquivos GLB -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/GLTFLoader.js"></script>
+  <!-- Botão AR para iniciar a experiência AR -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/ARButton.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script>
+    // Cria a cena e a câmera
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    // Configura o renderizador e ativa o suporte a XR
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.body.appendChild(renderer.domElement);
+    
+    // Adiciona o botão para iniciar a experiência AR
+    document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+    
+    // Carrega o modelo GLB do restaurante
+    const loader = new THREE.GLTFLoader();
+    loader.load('japanese_restaurant_inakaya.glb', function(gltf) {
+      scene.add(gltf.scene);
+      gltf.scene.position.set(0, -1, 0);
+    }, undefined, function(error) {
+      console.error('Erro ao carregar modelo:', error);
+    });
+    
+    // Adiciona luz ambiente e direcional
+    const ambientLight = new THREE.AmbientLight(0x404040, 3);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
+    
+    // Posição inicial da câmera (a posição real será definida pelo dispositivo em AR)
+    camera.position.set(0, 1.6, 3);
+    
+    // Função de renderização que será chamada pelo WebXR
+    function animate() {
+      renderer.render(scene, camera);
     }
-    </script>
-  </head>
-  <body>
-    <script type="module">
-      import * as THREE from 'three';
-      import { GLTFLoader } from 'https://unpkg.com/three@0.152.0/examples/jsm/loaders/GLTFLoader.js';
-      import { ARButton } from 'https://unpkg.com/three@0.152.0/examples/jsm/webxr/ARButton.js';
-
-      // Cria a cena
-      const scene = new THREE.Scene();
-
-      // Adiciona luz ambiente para iluminação básica
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-      scene.add(ambientLight);
-
-      // Adiciona luz direcional para realçar os detalhes do modelo
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(1, 2, 3);
-      scene.add(directionalLight);
-
-      // Configura a câmera
-      const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-
-      // Cria o renderizador com suporte a AR e fundo transparente
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setAnimationLoop(animate);
+    
+    // Ajusta o tamanho do renderizador se a janela for redimensionada
+    window.addEventListener('resize', () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.xr.enabled = true;
-      document.body.appendChild(renderer.domElement);
-
-      // Adiciona o botão AR para iniciar a experiência
-      document.body.appendChild(ARButton.createButton(renderer));
-
-      // Carrega o modelo .glb com GLTFLoader
-      const loader = new GLTFLoader();
-      loader.load('japanese_restaurant_inakaya.glb', (gltf) => {
-          const model = gltf.scene;
-          // Ajuste de posição: 2 metros à frente e 1.5 metros abaixo da posição inicial da câmera
-          model.position.set(0, -1.5, -2);
-          // Se necessário, ajuste a escala do modelo
-          model.scale.set(1, 1, 1);
-          scene.add(model);
-      }, undefined, (error) => {
-          console.error('Erro ao carregar o modelo:', error);
-      });
-
-      // Função de animação que renderiza a cena
-      function animate() {
-        renderer.setAnimationLoop(render);
-      }
-
-      function render() {
-        renderer.render(scene, camera);
-      }
-
-      animate();
-
-      // Atualiza o tamanho da cena quando a janela é redimensionada
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
-    </script>
-  </body>
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+  </script>
+</body>
 </html>
