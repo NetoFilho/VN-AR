@@ -1,8 +1,8 @@
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
     <title>AR com A-Frame e WebXR</title>
-    <!-- Atualizando para uma versão mais recente do A-Frame -->
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
       html, body {
@@ -10,7 +10,6 @@
         overflow: hidden;
         background: transparent;
       }
-      /* Indicadores de loading e erro */
       #loadingIndicator {
         position: fixed;
         top: 0;
@@ -36,7 +35,6 @@
         display: none;
         z-index: 10000;
       }
-      /* Botão para iniciar AR */
       #startAR {
         position: fixed;
         bottom: 20px;
@@ -51,29 +49,56 @@
         cursor: pointer;
         z-index: 10001;
       }
+      #locationInfo {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 10px;
+        z-index: 10002;
+      }
     </style>
   </head>
   <body>
-    <!-- Indicadores -->
     <div id="loadingIndicator">Carregando AR...</div>
     <div id="errorIndicator">Erro: Posição indefinida ou imagem ruim.</div>
+    <div id="locationInfo">
+      Latitude: <span id="lat">-</span><br>
+      Longitude: <span id="lon">-</span><br>
+      Distância: <span id="dist">-</span>m
+    </div>
     
-    <!-- Botão para iniciar AR -->
     <button id="startAR">Iniciar AR</button>
     
-    <!-- Cena A-Frame com configuração para AR -->
     <a-scene
-      xr="mode: ar; optionalFeatures: hit-test; referenceSpaceType: local-floor"
+      xr="mode: ar; 
+          optionalFeatures: hit-test, local-floor, dom-overlay; 
+          overlayElement: #overlay;
+          referenceSpaceType: local-floor"
       embedded
       id="scene"
       renderer="logarithmicDepthBuffer: true; alpha: true"
       background="transparent: true"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
     >
-      <!-- Objeto a 3 metros de distância -->
-      <a-box id="fixedBox" position="0 0 -3" color="#4CC3D9"></a-box>
+      <!-- Ambiente -->
+      <a-plane position="0 0 0" rotation="-90 0 0" width="10" height="10" color="#7BC8A4">
+        <!-- Elementos no plano -->
+        <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9" shadow></a-box>
+        <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E" shadow></a-sphere>
+        <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow></a-cylinder>
+        <a-text value="Bem-vindo ao AR!" position="-1 2 -3" scale="1.5 1.5 1.5" color="#000"></a-text>
+      </a-plane>
+
+      <!-- Iluminação -->
+      <a-light type="ambient" color="#888"></a-light>
+      <a-light type="directional" position="-2 4 -3" rotation="-30 0 0" intensity="0.8"></a-light>
       
-      <!-- Câmera para AR -->
-      <a-camera id="camera" position="0 0 0"></a-camera>
+      <a-camera id="camera" position="0 1.6 0">
+        <a-entity cursor="fuse: false; rayOrigin: mouse;"></a-entity>
+      </a-camera>
     </a-scene>
     
     <script>
@@ -81,8 +106,14 @@
       const loadingIndicator = document.getElementById('loadingIndicator');
       const errorIndicator = document.getElementById('errorIndicator');
       const startARButton = document.getElementById('startAR');
+      const latEl = document.getElementById('lat');
+      const lonEl = document.getElementById('lon');
+      const distEl = document.getElementById('dist');
+      
+      let userLat = 0;
+      let userLon = 0;
+      let initialPosition = null;
 
-      // Exibe mensagens de erro
       function showError(message) {
         errorIndicator.innerText = message;
         errorIndicator.style.display = 'block';
@@ -91,15 +122,72 @@
         }, 5000);
       }
 
-      // Verificação fictícia da qualidade do feed da câmera
-      function checkCameraQuality() {
-        const imageQualityOk = true; // Altere conforme sua lógica real
-        if (!imageQualityOk) {
-          showError('Imagem ruim detectada. Ajuste a iluminação ou o foco.');
+      function updateLocation(position) {
+        userLat = position.coords.latitude;
+        userLon = position.coords.longitude;
+        
+        latEl.textContent = userLat.toFixed(6);
+        lonEl.textContent = userLon.toFixed(6);
+
+        if (!initialPosition) {
+          initialPosition = {
+            lat: userLat,
+            lon: userLon
+          };
         }
+
+        // Calcula distância do ponto inicial
+        const distance = calculateDistance(
+          initialPosition.lat,
+          initialPosition.lon,
+          userLat,
+          userLon
+        );
+        
+        distEl.textContent = distance.toFixed(2);
+
+        // Atualiza posições dos objetos 3D baseado na distância
+        const objects = document.querySelectorAll('a-box, a-sphere, a-cylinder');
+        objects.forEach(obj => {
+          const pos = obj.getAttribute('position');
+          // Move objetos para mais perto/longe baseado na distância
+          obj.setAttribute('position', {
+            x: pos.x,
+            y: pos.y,
+            z: -3 - (distance * 0.1) // Ajusta Z baseado na distância
+          });
+        });
       }
 
-      // Ao carregar a cena, verifique o suporte AR e a posição do objeto
+      function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // Raio da Terra em metros
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return R * c;
+      }
+
+      // Inicializa rastreamento de localização
+      if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition(updateLocation, 
+          (error) => showError('Erro ao obter localização: ' + error.message),
+          {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
+          }
+        );
+      } else {
+        showError('Geolocalização não suportada');
+      }
+
       sceneEl.addEventListener('loaded', () => {
         if (navigator.xr) {
           navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
@@ -112,31 +200,30 @@
         } else {
           showError('WebXR não disponível.');
         }
-        
-        const box = document.getElementById('fixedBox');
-        let pos = box.getAttribute('position');
-        if (typeof pos === 'string') {
-          const parts = pos.split(' ').map(Number);
-          pos = { x: parts[0], y: parts[1], z: parts[2] };
-        }
-        if (pos.x === undefined || pos.y === undefined || pos.z === undefined) {
-          showError('Posição da box indefinida.');
-        }
       });
 
-      // Remove o indicador de loading ao entrar em AR
       sceneEl.addEventListener('enter-vr', () => {
         if (sceneEl.is('ar-mode')) {
           loadingIndicator.style.display = 'none';
         }
       });
 
-      setTimeout(checkCameraQuality, 5000);
-
-      // Inicia a sessão AR ao clicar no botão
       startARButton.addEventListener('click', () => {
+        loadingIndicator.style.display = 'flex';
         sceneEl.enterVR();
         startARButton.style.display = 'none';
+      });
+
+      // Atualiza posição da câmera com base no movimento do dispositivo
+      window.addEventListener('deviceorientation', (event) => {
+        const camera = document.getElementById('camera');
+        if (camera) {
+          const rotation = camera.getAttribute('rotation');
+          rotation.y = event.alpha || 0; // Rotação no eixo Y (direção)
+          rotation.x = event.beta || 0;  // Rotação no eixo X (inclinação)
+          rotation.z = event.gamma || 0; // Rotação no eixo Z (rolagem)
+          camera.setAttribute('rotation', rotation);
+        }
       });
     </script>
   </body>
