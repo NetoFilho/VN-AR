@@ -35,6 +35,15 @@
         display: none;
         z-index: 10000;
       }
+      #locationInfo {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 10px;
+        z-index: 10002;
+      }
       #startAR {
         position: fixed;
         bottom: 20px;
@@ -49,15 +58,6 @@
         cursor: pointer;
         z-index: 10001;
       }
-      #locationInfo {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        background: rgba(0,0,0,0.7);
-        color: white;
-        padding: 10px;
-        z-index: 10002;
-      }
     </style>
   </head>
   <body>
@@ -70,39 +70,76 @@
     </div>
     
     <button id="startAR">Iniciar AR</button>
-    
+
     <a-scene
-      xr="mode: ar; 
-          optionalFeatures: hit-test, local-floor, dom-overlay; 
-          overlayElement: #overlay;
-          referenceSpaceType: local-floor"
+      webxr="requiredFeatures: hit-test,local-floor;
+             overlayElement: #overlay;
+             optionalFeatures: dom-overlay,unbounded"
       embedded
-      id="scene"
-      renderer="logarithmicDepthBuffer: true; alpha: true"
-      background="transparent: true"
+      renderer="logarithmicDepthBuffer: true; precision: medium;"
       vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
     >
-      <!-- Ambiente -->
-      <a-plane position="0 0 0" rotation="-90 0 0" width="10" height="10" color="#7BC8A4">
-        <!-- Elementos no plano -->
-        <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9" shadow></a-box>
-        <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E" shadow></a-sphere>
-        <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow></a-cylinder>
-        <a-text value="Bem-vindo ao AR!" position="-1 2 -3" scale="1.5 1.5 1.5" color="#000"></a-text>
+      <!-- Sistema de iluminação -->
+      <a-light type="ambient" intensity="0.5"></a-light>
+      <a-light type="directional" intensity="0.8" position="-1 1 1"></a-light>
+
+      <!-- Plano de referência -->
+      <a-plane
+        id="ground"
+        position="0 0 0"
+        rotation="-90 0 0"
+        width="100"
+        height="100"
+        color="#7BC8A4"
+        material="transparent: true; opacity: 0.5"
+        class="cantap"
+        visible="false">
       </a-plane>
 
-      <!-- Iluminação -->
-      <a-light type="ambient" color="#888"></a-light>
-      <a-light type="directional" position="-2 4 -3" rotation="-30 0 0" intensity="0.8"></a-light>
-      
-      <a-camera id="camera" position="0 1.6 0">
-        <a-entity cursor="fuse: false; rayOrigin: mouse;"></a-entity>
-      </a-camera>
+      <!-- Objetos 3D -->
+      <a-entity id="objects" position="0 0 -2">
+        <a-box
+          position="-1 0.5 0"
+          rotation="0 45 0"
+          color="#4CC3D9"
+          shadow
+          animation="property: rotation; to: 0 405 0; dur: 2000; easing: linear; loop: true">
+        </a-box>
+
+        <a-sphere
+          position="0 1.25 0"
+          radius="0.5"
+          color="#EF2D5E"
+          shadow
+          animation="property: position; to: 0 1.75 0; dir: alternate; dur: 2000; easing: easeInOutQuad; loop: true">
+        </a-sphere>
+
+        <a-cylinder
+          position="1 0.75 0"
+          radius="0.3"
+          height="1.5"
+          color="#FFC65D"
+          shadow
+          animation="property: rotation; to: 0 360 0; dur: 4000; easing: linear; loop: true">
+        </a-cylinder>
+
+        <a-text
+          value="AR World!"
+          position="0 2.5 0"
+          align="center"
+          color="#000000"
+          scale="1.5 1.5 1.5">
+        </a-text>
+      </a-entity>
+
+      <!-- Câmera AR -->
+      <a-entity id="rig" position="0 0 0">
+        <a-camera id="camera" position="0 1.6 0"></a-camera>
+      </a-entity>
     </a-scene>
-    
+
     <script>
-      const sceneEl = document.getElementById('scene');
+      const scene = document.querySelector('a-scene');
       const loadingIndicator = document.getElementById('loadingIndicator');
       const errorIndicator = document.getElementById('errorIndicator');
       const startARButton = document.getElementById('startAR');
@@ -122,6 +159,32 @@
         }, 5000);
       }
 
+      async function initAR() {
+        if (!navigator.xr) {
+          showError('WebXR não suportado neste navegador');
+          return;
+        }
+
+        try {
+          const supported = await navigator.xr.isSessionSupported('immersive-ar');
+          if (!supported) {
+            showError('AR não suportado neste dispositivo');
+            return;
+          }
+
+          loadingIndicator.style.display = 'flex';
+          const session = await navigator.xr.requestSession('immersive-ar', {
+            requiredFeatures: ['hit-test', 'local-floor'],
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: { root: document.body }
+          });
+
+          scene.enterAR();
+        } catch (err) {
+          showError('Erro ao iniciar AR: ' + err);
+        }
+      }
+
       function updateLocation(position) {
         userLat = position.coords.latitude;
         userLon = position.coords.longitude;
@@ -136,7 +199,6 @@
           };
         }
 
-        // Calcula distância do ponto inicial
         const distance = calculateDistance(
           initialPosition.lat,
           initialPosition.lon,
@@ -146,21 +208,18 @@
         
         distEl.textContent = distance.toFixed(2);
 
-        // Atualiza posições dos objetos 3D baseado na distância
-        const objects = document.querySelectorAll('a-box, a-sphere, a-cylinder');
-        objects.forEach(obj => {
-          const pos = obj.getAttribute('position');
-          // Move objetos para mais perto/longe baseado na distância
-          obj.setAttribute('position', {
-            x: pos.x,
-            y: pos.y,
-            z: -3 - (distance * 0.1) // Ajusta Z baseado na distância
-          });
+        // Atualiza posição dos objetos baseado na distância
+        const objectsEntity = document.getElementById('objects');
+        const currentPosition = objectsEntity.getAttribute('position');
+        objectsEntity.setAttribute('position', {
+          x: currentPosition.x,
+          y: currentPosition.y,
+          z: -2 - (distance * 0.1) // Ajusta profundidade baseado na distância
         });
       }
 
       function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371e3; // Raio da Terra em metros
+        const R = 6371e3;
         const φ1 = lat1 * Math.PI/180;
         const φ2 = lat2 * Math.PI/180;
         const Δφ = (lat2-lat1) * Math.PI/180;
@@ -174,7 +233,7 @@
         return R * c;
       }
 
-      // Inicializa rastreamento de localização
+      // Inicializa localização
       if ("geolocation" in navigator) {
         navigator.geolocation.watchPosition(updateLocation, 
           (error) => showError('Erro ao obter localização: ' + error.message),
@@ -184,45 +243,37 @@
             timeout: 5000
           }
         );
-      } else {
-        showError('Geolocalização não suportada');
       }
 
-      sceneEl.addEventListener('loaded', () => {
-        if (navigator.xr) {
-          navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-            if (!supported) {
-              showError('AR não suportado neste dispositivo.');
-            }
-          }).catch((err) => {
-            showError('Erro ao verificar suporte AR: ' + err);
-          });
-        } else {
-          showError('WebXR não disponível.');
-        }
-      });
-
-      sceneEl.addEventListener('enter-vr', () => {
-        if (sceneEl.is('ar-mode')) {
+      // Eventos
+      scene.addEventListener('enter-vr', function() {
+        if (scene.is('ar-mode')) {
           loadingIndicator.style.display = 'none';
+          startARButton.style.display = 'none';
+          document.getElementById('ground').setAttribute('visible', 'true');
         }
       });
 
-      startARButton.addEventListener('click', () => {
-        loadingIndicator.style.display = 'flex';
-        sceneEl.enterVR();
-        startARButton.style.display = 'none';
+      scene.addEventListener('exit-vr', function() {
+        startARButton.style.display = 'block';
+        document.getElementById('ground').setAttribute('visible', 'false');
       });
 
-      // Atualiza posição da câmera com base no movimento do dispositivo
-      window.addEventListener('deviceorientation', (event) => {
-        const camera = document.getElementById('camera');
-        if (camera) {
-          const rotation = camera.getAttribute('rotation');
-          rotation.y = event.alpha || 0; // Rotação no eixo Y (direção)
-          rotation.x = event.beta || 0;  // Rotação no eixo X (inclinação)
-          rotation.z = event.gamma || 0; // Rotação no eixo Z (rolagem)
-          camera.setAttribute('rotation', rotation);
+      startARButton.addEventListener('click', initAR);
+
+      // Detecção de movimento do dispositivo
+      window.addEventListener('devicemotion', (event) => {
+        const objects = document.getElementById('objects');
+        const acceleration = event.accelerationIncludingGravity;
+        
+        if (acceleration) {
+          // Ajusta a posição dos objetos baseado no movimento
+          const currentPos = objects.getAttribute('position');
+          objects.setAttribute('position', {
+            x: currentPos.x + (acceleration.x * 0.01),
+            y: currentPos.y,
+            z: currentPos.z + (acceleration.z * 0.01)
+          });
         }
       });
     </script>
