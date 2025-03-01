@@ -1,67 +1,377 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Japanese Restaurant AR Experience</title>
-  <!-- Three.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- Loader para arquivos GLB -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/GLTFLoader.js"></script>
-  <!-- Botão AR para iniciar a experiência AR -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/ARButton.js"></script>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experiência VR</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            touch-action: none; /* Previne comportamentos de toque padrão */
+        }
+        #container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px;
+            z-index: 100;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px;
+            z-index: 100;
+        }
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 30px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 200;
+        }
+        #moveButton {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 40px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 150;
+            opacity: 0.8;
+        }
+        .indicator {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: red;
+            z-index: 150;
+        }
+    </style>
 </head>
 <body>
-  <script>
-    // Cria a cena e a câmera
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    
-    // Configura o renderizador e ativa o suporte a XR
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
-    
-    // Adiciona o botão para iniciar a experiência AR
-    document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
-    
-    // Carrega o modelo GLB do restaurante
-    const loader = new THREE.GLTFLoader();
-    loader.load('japanese_restaurant_inakaya.glb', function(gltf) {
-      scene.add(gltf.scene);
-      gltf.scene.position.set(0, -1, 0);
-    }, undefined, function(error) {
-      console.error('Erro ao carregar modelo:', error);
-    });
-    
-    // Adiciona luz ambiente e direcional
-    const ambientLight = new THREE.AmbientLight(0x404040, 3);
-    scene.add(ambientLight);
-    
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
-    directionalLight.position.set(1, 1, 1);
-    scene.add(directionalLight);
-    
-    // Posição inicial da câmera (a posição real será definida pelo dispositivo em AR)
-    camera.position.set(0, 1.6, 3);
-    
-    // Função de renderização que será chamada pelo WebXR
-    function animate() {
-      renderer.render(scene, camera);
-    }
-    renderer.setAnimationLoop(animate);
-    
-    // Ajusta o tamanho do renderizador se a janela for redimensionada
-    window.addEventListener('resize', () => {
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-    });
-  </script>
+    <div id="container"></div>
+    <div id="info">
+        Objeto a <span id="distance">2.00</span> metros | Inclinação: <span id="orientation">0.0°</span>
+    </div>
+    <div id="controls">
+        Incline o dispositivo para olhar ao redor | Toque para avançar
+    </div>
+    <button id="startButton">Iniciar Experiência VR</button>
+    <button id="moveButton">Avançar</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Configuração inicial
+        let isStarted = false;
+        const startButton = document.getElementById('startButton');
+        const moveButton = document.getElementById('moveButton');
+        moveButton.style.display = 'none';
+        
+        startButton.addEventListener('click', function() {
+            startButton.style.display = 'none';
+            moveButton.style.display = 'block';
+            isStarted = true;
+            
+            // Solicitar permissão para orientação do dispositivo
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                // iOS 13+ requer permissão explícita
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                        } else {
+                            alert('Permissão para acesso à orientação negada.');
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // Dispositivos que não exigem permissão explícita
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+            
+            // Iniciar experiência
+            animate();
+        });
+        
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb); // Céu azul claro
+        
+        // Câmera (representa o observador)
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.6, 0); // Altura de uma pessoa média
+        
+        // Renderizador
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('container').appendChild(renderer.domElement);
+        
+        // Luz
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+        
+        // Chão
+        const groundGeometry = new THREE.PlaneGeometry(100, 100);
+        const groundMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x3a9f32,  // Verde escuro
+            side: THREE.DoubleSide,
+            roughness: 0.8
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        
+        // Objeto a 2 metros de distância inicialmente
+        const objectGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const objectMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xff0000,
+            roughness: 0.5,
+            metalness: 0.5
+        });
+        const object = new THREE.Mesh(objectGeometry, objectMaterial);
+        object.position.set(0, 1, -2); // 2 metros à frente
+        object.castShadow = true;
+        scene.add(object);
+        
+        // Adicionar alguns objetos extras na cena para melhor percepção de profundidade
+        function addExtraObjects() {
+            // Adicionar árvores simples
+            for (let i = 0; i < 20; i++) {
+                const treeHeight = 2 + Math.random() * 3;
+                const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.2, treeHeight, 8);
+                const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+                const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                
+                const leavesGeometry = new THREE.ConeGeometry(0.8, 2, 8);
+                const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+                const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+                leaves.position.y = treeHeight/2;
+                
+                const tree = new THREE.Group();
+                tree.add(trunk);
+                tree.add(leaves);
+                
+                // Posicionar aleatoriamente na cena, mas não muito perto do centro
+                const x = (Math.random() - 0.5) * 40;
+                const z = (Math.random() - 0.5) * 40;
+                // Evitar colocar árvores muito perto do centro
+                if (Math.abs(x) < 3 && Math.abs(z) < 3) continue;
+                
+                tree.position.set(x, 0, z);
+                scene.add(tree);
+            }
+        }
+        
+        addExtraObjects();
+        
+        // Linhas de grade no chão para referência de distância
+        const gridHelper = new THREE.GridHelper(20, 20);
+        scene.add(gridHelper);
+        
+        // Variáveis para controle de movimento
+        let targetRotationY = 0;
+        let targetRotationX = 0;
+        let isMoving = false;
+        const moveSpeed = 0.05;
+        
+        // Vetor de direção
+        const cameraDirection = new THREE.Vector3();
+        
+        // Manipular orientação do dispositivo
+        function handleOrientation(event) {
+            if (!isStarted) return;
+            
+            // Converter graus para radianos
+            const beta = event.beta * Math.PI / 180;  // Rotação no eixo X (-180° a 180°)
+            const gamma = event.gamma * Math.PI / 180; // Rotação no eixo Y (-90° a 90°)
+            const alpha = event.alpha * Math.PI / 180; // Rotação no eixo Z (0° a 360°)
+            
+            // Atualizar a orientação da câmera
+            // Nota: os valores precisos dependem da orientação do dispositivo
+            targetRotationX = beta / 5;  // Reduzir sensibilidade
+            targetRotationY = -gamma / 3; // Reduzir sensibilidade
+            
+            // Limitar a rotação vertical
+            targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+            
+            // Atualizar o display de orientação
+            document.getElementById('orientation').textContent = 
+                `${(gamma * 180/Math.PI).toFixed(1)}°, ${(beta * 180/Math.PI).toFixed(1)}°`;
+        }
+        
+        // Botão para movimento
+        moveButton.addEventListener('touchstart', function() {
+            isMoving = true;
+        });
+        
+        moveButton.addEventListener('touchend', function() {
+            isMoving = false;
+        });
+        
+        moveButton.addEventListener('mousedown', function() {
+            isMoving = true;
+        });
+        
+        moveButton.addEventListener('mouseup', function() {
+            isMoving = false;
+        });
+        
+        // Também permitir toque na tela para movimento
+        document.addEventListener('touchstart', function(event) {
+            if (event.target === renderer.domElement) {
+                isMoving = true;
+            }
+        });
+        
+        document.addEventListener('touchend', function() {
+            isMoving = false;
+        });
+        
+        // Função para atualizar a câmera
+        function updateCamera() {
+            if (!isStarted) return;
+            
+            // Suavizar movimento da câmera
+            camera.rotation.x += (targetRotationX - camera.rotation.x) * 0.1;
+            camera.rotation.y += (targetRotationY - camera.rotation.y) * 0.1;
+            
+            // Movimento para frente baseado na direção da câmera
+            if (isMoving) {
+                camera.getWorldDirection(cameraDirection);
+                const forwardVector = new THREE.Vector3(
+                    cameraDirection.x,
+                    0,
+                    cameraDirection.z
+                ).normalize().multiplyScalar(moveSpeed);
+                
+                camera.position.add(forwardVector);
+            }
+            
+            // Manter a altura da câmera constante
+            camera.position.y = 1.6;
+            
+            // Calcular a distância até o objeto
+            const distance = camera.position.distanceTo(object.position);
+            document.getElementById('distance').textContent = distance.toFixed(2);
+            
+            // Fazer o objeto olhar para a câmera
+            object.lookAt(camera.position);
+        }
+        
+        // Loop de animação
+        function animate() {
+            if (!isStarted) return;
+            
+            requestAnimationFrame(animate);
+            updateCamera();
+            
+            // Girar o objeto lentamente
+            object.rotation.y += 0.01;
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Ajustar o tamanho da janela
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Fallback para dispositivos sem sensores de orientação
+        if (window.DeviceOrientationEvent === undefined) {
+            document.getElementById('controls').textContent = 
+                "Seu dispositivo não suporta sensores de orientação. Toque e arraste para olhar ao redor.";
+            
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            document.addEventListener('touchstart', function(event) {
+                touchStartX = event.touches[0].clientX;
+                touchStartY = event.touches[0].clientY;
+            });
+            
+            document.addEventListener('touchmove', function(event) {
+                if (!isStarted) return;
+                
+                const touchX = event.touches[0].clientX;
+                const touchY = event.touches[0].clientY;
+                
+                targetRotationY -= (touchX - touchStartX) * 0.01;
+                targetRotationX -= (touchY - touchStartY) * 0.01;
+                
+                // Limitar a rotação vertical
+                targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+                
+                touchStartX = touchX;
+                touchStartY = touchY;
+            });
+            
+            // Movimento com mouse para desktop
+            let isMouseDown = false;
+            let mouseStartX = 0;
+            let mouseStartY = 0;
+            
+            document.addEventListener('mousedown', function(event) {
+                isMouseDown = true;
+                mouseStartX = event.clientX;
+                mouseStartY = event.clientY;
+            });
+            
+            document.addEventListener('mousemove', function(event) {
+                if (!isStarted || !isMouseDown) return;
+                
+                const mouseX = event.clientX;
+                const mouseY = event.clientY;
+                
+                targetRotationY -= (mouseX - mouseStartX) * 0.01;
+                targetRotationX -= (mouseY - mouseStartY) * 0.01;
+                
+                // Limitar a rotação vertical
+                targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+                
+                mouseStartX = mouseX;
+                mouseStartY = mouseY;
+            });
+            
+            document.addEventListener('mouseup', function() {
+                isMouseDown = false;
+            });
+        }
+    </script>
 </body>
 </html>
